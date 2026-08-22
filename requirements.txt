@@ -14,3 +14,4 @@ scikit-image==0.23.2
 matplotlib==3.9.0
 python-dotenv==1.0.1
 tqdm==4.66.4
+pytest==8.2.2

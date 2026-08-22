@@ -28,7 +28,17 @@
 | class_label | string | "paddy", "non_paddy", or "water" |
 | class_confidence | float | Model's confidence (0.0-1.0) in the predicted class |
 
+
 ## How to reproduce this pipeline end-to-end
+
+**Option A — one command:**
+
+\`\`\`bash
+source venv/bin/activate
+./run_pipeline.sh
+\`\`\`
+
+**Option B — step by step:**
 
 \`\`\`bash
 source venv/bin/activate
@@ -37,6 +47,7 @@ python -m src.preprocessing.process_raw_image
 python -m src.preprocessing.extract_training_points
 python -m src.segmentation.train
 python -m src.segmentation.predict
+python -m pytest tests/ -v
 \`\`\`
 
 ## Current known limitations (to be resolved with real data)
