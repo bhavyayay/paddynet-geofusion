@@ -22,7 +22,7 @@ two official government publications:
 | Source | Rows | Coverage |
 |---|---|---|
 | State Statistical Abstract of Haryana 2022-23, Table 14.7 | 30 | Haryana state-level, 1966-2021 (9 years) + all 21 rice-growing Haryana districts, 2021-22 |
-| "Final Estimate of Area, Production & Yield for Rice" (DES/data.gov.in) | 20 | Bihar, Haryana, Punjab, Uttar Pradesh -- state-level, 2021-22 to 2025-26 |
+| "Final Estimate of Area, Production & Yield for Rice" (https://upag.gov.in/dash-reports/fiveyearapy) | 20 | Bihar, Haryana, Punjab, Uttar Pradesh -- state-level, 2021-22 to 2025-26 |
 
 Combined and de-duplicated: **50 total rows, 47 with complete weather
 + yield features** (3 pre-1981 rows lack weather because NASA POWER's
@@ -123,8 +123,8 @@ python -m src.prediction.train
 ## Files in this module
 
 - `dataset_loader.py` -- loads and validates Dev 1's parcel predictions
+- 'download_full_dataset.py'
 - `weather_fetcher.py` -- fetches NASA POWER weather for Dev 1's parcels
-- `add_yield_label.py` -- (superseded by combine_datasets.py; kept for reference)
 - `merge_weather_with_yield.py` -- attaches weather to the Statistical Abstract dataset
 - `combine_datasets.py` -- merges both real data sources into the final training set
 - `model.py` -- small CNN-LSTM architecture (PyTorch)
