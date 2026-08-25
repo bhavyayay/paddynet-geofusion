@@ -19,8 +19,10 @@ Usage:
     python -m src.prediction.train
 """
 
+import os
 import numpy as np
 import pandas as pd
+import joblib
 import torch
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
@@ -31,7 +33,9 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from src.prediction.model import build_model
 
 DATA_PATH = "data/processed/combined_training_dataset.parquet"
-MODEL_SAVE_PATH = "models/yield_cnn_lstm.pt"
+CNN_LSTM_SAVE_PATH = "models/yield_cnn_lstm.pt"
+RF_SAVE_PATH = "models/yield_random_forest.joblib"
+SCALER_SAVE_PATH = "models/feature_scaler.joblib"
 
 FEATURE_COLUMNS = ["area_000ha", "t2m_max", "t2m_min", "precip_mm", "rh2m"]
 TARGET_COLUMN = "yield_t_ha"
@@ -72,6 +76,10 @@ def train_random_forest(X_train, X_test, y_train, y_test):
     )
     rf.fit(X_train, y_train)
 
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(rf, RF_SAVE_PATH)
+    print(f"Saved model to {RF_SAVE_PATH}")
+
     preds = rf.predict(X_test)
     metrics = evaluate(y_test, preds, "Random Forest")
 
@@ -92,6 +100,10 @@ def train_cnn_lstm(X_train, X_test, y_train, y_test, epochs=100, lr=0.01):
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
+
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(scaler, SCALER_SAVE_PATH)
+    print(f"Saved feature scaler to {SCALER_SAVE_PATH}")
 
     X_train_t = torch.tensor(X_train_scaled, dtype=torch.float32).unsqueeze(-1)
     X_test_t = torch.tensor(X_test_scaled, dtype=torch.float32).unsqueeze(-1)
@@ -139,10 +151,9 @@ def train_cnn_lstm(X_train, X_test, y_train, y_test, epochs=100, lr=0.01):
 
     metrics = evaluate(y_test, final_preds, "CNN-LSTM")
 
-    import os
     os.makedirs("models", exist_ok=True)
-    torch.save(model.state_dict(), MODEL_SAVE_PATH)
-    print(f"\nSaved model to {MODEL_SAVE_PATH}")
+    torch.save(model.state_dict(), CNN_LSTM_SAVE_PATH)
+    print(f"\nSaved model to {CNN_LSTM_SAVE_PATH}")
 
     return model, metrics
 
