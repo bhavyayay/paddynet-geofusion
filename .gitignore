@@ -13,3 +13,5 @@ models/*.ckpt
 models/*.pt
 models/*.joblib
 .ipynb_checkpoints/
+reports/
+.pytest_cache/
