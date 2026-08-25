@@ -203,3 +203,154 @@ Requires `scikit-learn` in addition to the packages in the root
 ```bash
 pip install scikit-learn
 ```
+
+# PaddyNet-GeoFusion — Developer 3 Module (Evaluation, API & Dashboard)
+
+## What this module does
+1. **Evaluates** Developer 2's trained models against real historical
+   yield numbers using standard accuracy measurements
+   (MAE, RMSE, R², MAPE) — `src/evaluation/`.
+2. **Serves predictions** to other programs through a small REST API —
+   `src/api/`.
+3. **Visualizes** the whole project on a single dashboard page
+   (predicted vs actual yield charts, accuracy metrics, parcel
+   classification summary) — `src/dashboard/`.
+4. **Integration-tests** the full chain: Dev 1's schema contract →
+   Dev 2's models → Dev 3's evaluation/API/dashboard —
+   `tests/test_integration.py` and `tests/test_evaluation_metrics.py`.
+
+## Evaluation methodology (why these numbers are honest)
+
+The evaluation reconstructs the **exact** train/test split Developer 2
+used (same random seed 42, same 25% test size), so the "held-out test"
+metrics are computed only on rows the models never saw during
+training. Metrics are reported for both scopes so nobody mistakes
+in-sample accuracy for real accuracy:
+
+| Model | Scope | MAE (t/ha) | RMSE (t/ha) | R² | MAPE |
+|---|---|---|---|---|---|
+| Random Forest | held-out test | 0.462 | 0.694 | 0.157 | 14.5% |
+| Random Forest | full dataset | 0.269 | 0.417 | 0.684 | 8.6% |
+| CNN-LSTM | held-out test | 0.512 | 0.742 | 0.035 | 16.2% |
+| CNN-LSTM | full dataset | 0.510 | 0.666 | 0.195 | 15.6% |
+
+(CNN-LSTM numbers vary slightly between training runs; regenerate with
+the commands below. The held-out Random Forest numbers independently
+reproduce what Developer 2's train.py reported, which confirms the
+split reconstruction is correct.)
+
+**Caveat:** the held-out test set is only 12 rows. Treat all metrics
+as directional until the team has more real data.
+
+**Artifacts produced:**
+- `data/processed/evaluation_report.json` — machine-readable metrics
+  (also served live at the API's `/metrics` endpoint)
+- `data/processed/evaluation_predictions.parquet` — per-row actual vs
+  predicted comparison (feeds the dashboard charts)
+
+## The API
+
+FastAPI service exposing Dev 2's trained models. Unlike the library
+interface (`src.prediction.predict`), it loads model files **once at
+startup** instead of on every call.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /health` | Liveness + whether models are loaded |
+| `POST /predict` | Yield prediction from area + weather features (validated inputs) |
+| `GET /metrics` | Latest evaluation report |
+| `GET /dashboard` | Human-friendly dashboard page |
+| `GET /docs` | Interactive API documentation |
+
+Example request:
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H 'Content-Type: application/json' \
+  -d '{"area_000ha": 129.2, "t2m_max": 34.6, "t2m_min": 23.5, "precip_mm": 0.14, "rh2m": 70.4}'
+# -> {"random_forest_t_ha": 3.708, "cnn_lstm_t_ha": ..., "recommended": 3.708, "recommended_model": "random_forest"}
+```
+
+**Security note:** the API has no authentication. It is for local
+development and team demos only — do not expose it beyond localhost
+without adding auth.
+
+## The dashboard
+
+A single self-contained HTML page (inline SVG charts, no JavaScript
+libraries, no internet needed) showing:
+- Predicted vs actual rice yield per Haryana district (2021-22)
+- Haryana state yield trend over time, actual vs predicted
+- The full accuracy metrics table with caveats
+- Dev 1's parcel classification summary (when
+  `parcel_predictions.parquet` exists; shows a clear note otherwise)
+
+View it either at the API's `/dashboard` endpoint, or as a static file
+at `reports/dashboard.html`.
+
+## How to reproduce this module end-to-end
+
+```bash
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Prerequisite: Dev 2's dataset + trained models
+# (copy combined_training_dataset.parquet into data/processed/ if needed)
+python -m src.prediction.train
+
+# 1. Evaluate models vs real historical yields
+python -m src.evaluation.evaluate_models
+
+# 2. Build the static dashboard
+python -m src.dashboard.build_dashboard      # writes reports/dashboard.html
+
+# 3. Run the API (then open http://localhost:8000/dashboard)
+uvicorn src.api.app:app --reload
+
+# 4. Run all tests (Dev 1 + Dev 3, 37 tests)
+python -m pytest tests/ -v
+```
+
+## Files in this module
+
+- `src/evaluation/metrics.py` — MAE / RMSE / R² / MAPE as pure, tested functions
+- `src/evaluation/evaluate_models.py` — full evaluation run + report artifacts
+- `src/api/app.py` — FastAPI service (model caching, input validation)
+- `src/dashboard/build_dashboard.py` — HTML dashboard generator
+- `tests/test_evaluation_metrics.py` — 12 unit tests for the metrics
+- `tests/test_integration.py` — 8 cross-module integration tests
+
+---
+
+# How the Whole Project Fits Together
+
+```
+ Sentinel-2 imagery          Govt yield statistics        Consumers
+ (Copernicus)                + NASA POWER weather         (humans & programs)
+      |                              |                          ^
+      v                              v                          |
++---------------+   parquet   +---------------+   models   +---------------+
+|  DEVELOPER 1  | ----------> |  DEVELOPER 2  | ---------> |  DEVELOPER 3  |
+|  segmentation |             |  yield model  |            |  eval + API   |
+|  (paddy/not)  |             |  (RF + LSTM)  |            |  + dashboard  |
++---------------+             +---------------+            +---------------+
+ parcel_predictions            combined_training            evaluation_report.json
+ .parquet                      _dataset.parquet             reports/dashboard.html
+                               models/*.joblib|*.pt         REST API on :8000
+```
+
+**The contracts between us are files, not code.** Each developer's
+output is a documented artifact (schema tables above) the next
+developer reads. `tests/test_integration.py` guards these contracts —
+if someone renames a column or changes the model interface, tests fail
+before anyone's pipeline silently breaks.
+
+**Onboarding path for someone new:**
+1. Read this README top to bottom (one section per developer).
+2. `pip install -r requirements.txt` in a venv.
+3. Run the Developer 3 reproduction steps above — they exercise the
+   whole chain and end with a dashboard you can look at.
+4. Note the honest limitations flagged in every section: placeholder
+   GPS points (Dev 1), 47 usable training rows (Dev 2), a 12-row
+   held-out test set (Dev 3). The pipeline is real and tested;
+   the accuracy numbers will only become trustworthy with more data.
