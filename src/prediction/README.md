@@ -124,7 +124,6 @@ python -m src.prediction.train
 
 - `dataset_loader.py` -- loads and validates Dev 1's parcel predictions
 - `weather_fetcher.py` -- fetches NASA POWER weather for Dev 1's parcels
-- `add_yield_label.py` -- (superseded by combine_datasets.py; kept for reference)
 - `merge_weather_with_yield.py` -- attaches weather to the Statistical Abstract dataset
 - `combine_datasets.py` -- merges both real data sources into the final training set
 - `model.py` -- small CNN-LSTM architecture (PyTorch)

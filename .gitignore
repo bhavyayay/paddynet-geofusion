@@ -11,4 +11,5 @@ data/processed/*
 !data/processed/.gitkeep
 models/*.ckpt
 models/*.pt
+models/*.joblib
 .ipynb_checkpoints/
